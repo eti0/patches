@@ -1,0 +1,36 @@
+diff --git a/src/compton.c b/src/compton.c
+index 92935a3..d4a153e 100644
+--- a/src/compton.c
++++ b/src/compton.c
+@@ -174,7 +174,13 @@ gaussian(double r, double x, double y) {
+ static conv *
+ make_gaussian_map(double r) {
+   conv *c;
+-  int size = ((int) ceil((r * 3)) + 1) & ~1;
++
++  int size;
++  if (r == 1)
++    size = 1;
++  else
++    size = ((int) ceil((r * 3)) + 1) & ~1;
++
+   int center = size / 2;
+   int x, y;
+   double t;
+@@ -2705,8 +2711,14 @@ static void
+ calc_shadow_geometry(session_t *ps, win *w) {
+   w->shadow_dx = ps->o.shadow_offset_x;
+   w->shadow_dy = ps->o.shadow_offset_y;
+-  w->shadow_width = w->widthb + ps->gaussian_map->size;
+-  w->shadow_height = w->heightb + ps->gaussian_map->size;
++  if (ps->gaussian_map->size == 1) {
++    w->shadow_width = w->widthb;
++    w->shadow_height = w->heightb;
++  }
++  else {
++    w->shadow_width = w->widthb + ps->gaussian_map->size;
++    w->shadow_height = w->heightb + ps->gaussian_map->size;
++  }
+ }
+ 
+ /**
