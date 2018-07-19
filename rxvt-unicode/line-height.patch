@@ -1,25 +1,26 @@
---- src/rxvtfont.C.orig	2011-07-20 22:19:29.878012201 -0300
-+++ src/rxvtfont.C	2011-07-20 22:19:33.634671723 -0300
-@@ -1237,11 +1237,22 @@
+commit ed90f70278b90aa02ca305ef23512ca34bd3c969
+Author: Stanislav Seletskiy <s.seletskiy@office.ngs.ru>
+Date:   Wed Jan 18 14:56:10 2012 +0700
+
+    draw text in middle of line, not on top
+    
+    if lineSpace > 0
+
+diff --git a/src/main.C b/src/main.C
+index f16de2e..7746fbc 100644
+--- a/src/main.C
++++ b/src/main.C
+@@ -818,7 +818,12 @@ rxvt_term::set_fonts ()
+   delete fontset[0];
+   fontset[0] = fs;
  
-       FT_Face face = XftLockFace (f);
- 
-+/*
-+ * use ascent, descent and height from XftFont *f instead of FT_Face face.
-+ * this somehow reproduces the behaviour of the line height as seen on xterm.
+-  prop = (*fs)[rxvt_fontset::firstFont]->properties ();
++  rxvt_font *first_font = (*fs)[rxvt_fontset::firstFont];
 +
-       ascent  = (face->size->metrics.ascender + 63) >> 6;
-       descent = (-face->size->metrics.descender + 63) >> 6;
-       height  = max (ascent + descent, (face->size->metrics.height + 63) >> 6);
-       width   = 0;
- 
-+ */
++  first_font->ascent += lineSpace;
 +
-+      ascent  = f->ascent;
-+      descent = f->descent;
-+      height  = max (ascent + descent, f->height);
-+      width   = 0;
-+
-       bool scalable = face->face_flags & FT_FACE_FLAG_SCALABLE;
++  prop = first_font->properties ();
++  prop.height += lineSpace;
+   prop.width = max (prop.width + letterSpace, 1);
  
-       XftUnlockFace (f);
+   fs->set_prop (prop, false);
