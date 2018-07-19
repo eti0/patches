@@ -1,0 +1,138 @@
+Description: hide_close_btn and hide_menubar
+
+--- pcmanfm-1.2.4.orig/src/app-config.c
++++ pcmanfm-1.2.4/src/app-config.c
+@@ -526,6 +526,8 @@ static void fm_app_config_init(FmAppConf
+     cfg->tb.new_win = FALSE;
+     cfg->autorun_choices = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                                  g_free, _free_archoice);
++    cfg->hide_menubar = FALSE;
++    cfg->hide_close_btn = FALSE;
+     cfg->show_statusbar = TRUE;
+ #if FM_CHECK_VERSION(1, 2, 0)
+     cfg->home_path = NULL;
+@@ -678,7 +680,8 @@ void fm_app_config_load_from_key_file(Fm
+ 
+     /* ui */
+     fm_key_file_get_bool(kf, "ui", "always_show_tabs", &cfg->always_show_tabs);
+-    fm_key_file_get_int(kf, "ui", "hide_close_btn", &cfg->hide_close_btn);
++    fm_key_file_get_bool(kf, "ui", "hide_menubar", &cfg->hide_menubar);
++    fm_key_file_get_bool(kf, "ui", "hide_close_btn", &cfg->hide_close_btn);
+     fm_key_file_get_int(kf, "ui", "max_tab_chars", &cfg->max_tab_chars);
+ 
+     fm_key_file_get_int(kf, "ui", "win_width", &cfg->win_width);
+@@ -1120,7 +1123,8 @@ void fm_app_config_save_profile(FmAppCon
+         g_string_append(buf, "\n[ui]\n");
+         g_string_append_printf(buf, "always_show_tabs=%d\n", cfg->always_show_tabs);
+         g_string_append_printf(buf, "max_tab_chars=%d\n", cfg->max_tab_chars);
+-        /* g_string_append_printf(buf, "hide_close_btn=%d\n", cfg->hide_close_btn); */
++        g_string_append_printf(buf, "hide_menubar=%d\n", cfg->hide_menubar);
++        g_string_append_printf(buf, "hide_close_btn=%d\n", cfg->hide_close_btn);
+         g_string_append_printf(buf, "win_width=%d\n", cfg->win_width);
+         g_string_append_printf(buf, "win_height=%d\n", cfg->win_height);
+         if (cfg->maximized)
+--- pcmanfm-1.2.4.orig/src/app-config.h
++++ pcmanfm-1.2.4/src/app-config.h
+@@ -115,6 +115,7 @@ struct _FmAppConfig
+ 
+     /* ui */
+     gboolean always_show_tabs;
++    gboolean hide_menubar;
+     gboolean hide_close_btn;
+     int max_tab_chars;
+     int win_width;
+--- pcmanfm-1.2.4.orig/src/main-win-ui.c
++++ pcmanfm-1.2.4/src/main-win-ui.c
+@@ -97,6 +97,7 @@ static const char main_menu_xml[] =
+     "</menu>"
+     "<menuitem action='SavePerFolder'/>"
+     "<separator/>"
++    "<menuitem action='HideMenubar'/>"
+     "<menu action='Toolbar'>"
+       "<menuitem action='ShowToolbar'/>"
+       "<separator/>"
+@@ -278,6 +279,7 @@ static GtkToggleActionEntry main_win_tog
+     {"SavePerFolder", NULL, N_("Preserve This Folder's Settings"), NULL,
+             N_("Check to remember view and sort as folder setting rather than global one"),
+             G_CALLBACK(on_save_per_folder), FALSE},
++    {"HideMenubar", NULL, N_("Hide Menubar"), "<Ctrl>M", NULL, G_CALLBACK(on_hide_menubar), TRUE},
+     {"ShowToolbar", NULL, N_("_Show Toolbar"), NULL, NULL, G_CALLBACK(on_show_toolbar), TRUE},
+     {"ToolbarNewWin", NULL, N_("Show 'New _Window' Button"), NULL, NULL, G_CALLBACK(on_toolbar_new_win), TRUE},
+     {"ToolbarNewTab", NULL, N_("Show 'New _Tab' Button"), NULL, NULL, G_CALLBACK(on_toolbar_new_tab), TRUE},
+--- pcmanfm-1.2.4.orig/src/main-win.c
++++ pcmanfm-1.2.4/src/main-win.c
+@@ -102,6 +102,7 @@ static void on_sort_ignore_case(GtkToggl
+ static void on_save_per_folder(GtkToggleAction* act, FmMainWin* win);
+ static void on_show_side_pane(GtkToggleAction* act, FmMainWin* win);
+ static void on_dual_pane(GtkToggleAction* act, FmMainWin* win);
++static void on_hide_menubar(GtkToggleAction *action, FmMainWin *win);
+ static void on_show_toolbar(GtkToggleAction *action, FmMainWin *win);
+ static void on_toolbar_new_win(GtkToggleAction *act, FmMainWin *win);
+ static void on_toolbar_new_tab(GtkToggleAction *act, FmMainWin *win);
+@@ -1693,6 +1694,7 @@ static gboolean on_window_state_event(Gt
+ FmMainWin* fm_main_win_add_win(FmMainWin* win, FmPath* path)
+ {
+     GtkAction *act;
++    GtkWidget *menubar;
+ 
+     win = fm_main_win_new();
+     gtk_window_set_default_size(GTK_WINDOW(win),
+@@ -1705,6 +1707,11 @@ FmMainWin* fm_main_win_add_win(FmMainWin
+     /* create new tab */
+     fm_main_win_add_tab(win, path);
+     gtk_window_present(GTK_WINDOW(win));
++    /* set menubar visibility and menu toggleables from config */
++    act = gtk_ui_manager_get_action(win->ui, "/menubar/ViewMenu/HideMenubar");
++    gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act), app_config->hide_menubar);
++    menubar = gtk_ui_manager_get_widget(win->ui, "/menubar");
++    gtk_widget_set_visible(menubar, !app_config->hide_menubar);
+     /* set toolbar visibility and menu toggleables from config */
+     act = gtk_ui_manager_get_action(win->ui, "/menubar/ViewMenu/Toolbar/ShowToolbar");
+     gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(act), app_config->tb.visible);
+@@ -1848,6 +1855,22 @@ static void on_add_bookmark(GtkAction* a
+     }
+ }
+ 
++static void on_hide_menubar(GtkToggleAction* action, FmMainWin* win)
++{
++    gboolean active;
++
++    active = gtk_toggle_action_get_active(action);
++
++    if(active)
++    {
++        gtk_widget_hide(gtk_ui_manager_get_widget(win->ui, "/menubar"));
++    }
++    else
++    {
++        gtk_widget_show(gtk_ui_manager_get_widget(win->ui, "/menubar"));
++    }
++}
++
+ static void on_show_toolbar(GtkToggleAction *action, FmMainWin *win)
+ {
+     gboolean active = gtk_toggle_action_get_active(action);
+--- pcmanfm-1.2.4.orig/src/pref.c
++++ pcmanfm-1.2.4/src/pref.c
+@@ -753,6 +753,7 @@ void fm_edit_preference( GtkWindow* pare
+ #endif
+ 
+         /* 'Layout' tab */
++        INIT_BOOL(builder, FmAppConfig, hide_menubar, NULL);
+         INIT_BOOL(builder, FmAppConfig, hide_close_btn, NULL);
+         INIT_BOOL(builder, FmAppConfig, always_show_tabs, NULL);
+         INIT_SPIN(builder, FmAppConfig, max_tab_chars, NULL);
+--- pcmanfm-1.2.4.orig/src/tab-page.c
++++ pcmanfm-1.2.4/src/tab-page.c
+@@ -963,6 +963,11 @@ static void fm_tab_page_init(FmTabPage *
+ #if ! GTK_CHECK_VERSION(3, 0, 0)
+     gtk_label_set_ellipsize(tab_label->label, PANGO_ELLIPSIZE_END);
+ #endif
++
++    if (app_config->hide_close_btn) {
++        gtk_widget_hide(GTK_WIDGET(tab_label->close_btn));
++    }
++
+     page->tab_label = tab_label;
+ 
+     atk_widget = gtk_widget_get_accessible(GTK_WIDGET(folder_view));
