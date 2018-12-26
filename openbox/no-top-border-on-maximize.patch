@@ -1,0 +1,13 @@
+diff --git a/openbox/client.c b/openbox/client.c
+index 16502d39..62cafc29 100644
+--- a/openbox/client.c
++++ b/openbox/client.c
+@@ -1927,7 +1927,7 @@ void client_setup_decor_and_functions(ObClient *self, gboolean reconfig)
+            the case any more though !
+ 
+            but do kill the handle on fully maxed windows */
+-        self->decorations &= ~(OB_FRAME_DECOR_HANDLE | OB_FRAME_DECOR_GRIPS | OB_FRAME_DECOR_BORDER);
++        self->decorations &= ~(OB_FRAME_DECOR_HANDLE | OB_FRAME_DECOR_GRIPS);
+     }
+ 
+     /* if we don't have a titlebar, then we cannot shade! */
